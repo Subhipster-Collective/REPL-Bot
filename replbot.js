@@ -33,10 +33,23 @@ repls.py.shell.stdout.on('data', (data) => {
 repls.js = [];
 repls.js.shell = spawn('node', ['-i']);
 repls.js.shell.stdout.on('data', (data) => {
+    if(`${data}` === '> ')
+        return;
     if('message' in repls.js)
         repls.js.message.channel.send(`${data}`);
     else
-        console.log('message is undefined');
+        console.log('node: message is undefined');
+});
+
+repls.sc = [];
+repls.sc.shell = spawn('scala', ['-i']);
+repls.sc.shell.stdout.on('data', (data) => {
+    if(`${data}` === '\nscala> ') // doesn't work for some reason
+        return;
+    if('message' in repls.sc)
+        repls.sc.message.channel.send(`${data}`);
+    else
+        console.log('scala: message is undefined');
 });
 
 client.on('message', (message) => {
