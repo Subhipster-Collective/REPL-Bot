@@ -44,7 +44,7 @@ repls.js.shell.stdout.on('data', (data) => {
 repls.sc = [];
 repls.sc.shell = spawn('scala', ['-i']);
 repls.sc.shell.stdout.on('data', (data) => {
-    if(`${data}` === '\nscala> ') // doesn't work for some reason
+    if(`${data}` === '\nscala> ')
         return;
     if('message' in repls.sc)
         repls.sc.message.channel.send(`${data}`);
@@ -72,7 +72,7 @@ client.on('message', (message) => {
                 {
                     aliases['!' + params[2]] = {
                         repl: repls[params[3]],
-                        macro: params.length > 4 ? params.slice(4).join(' ') : ' '
+                        macro: params.slice(4).join(' ')
                     };
                 }
                 else
