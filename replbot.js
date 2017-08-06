@@ -40,13 +40,24 @@ function spawnREPL(name, command, prompt)
         {
             repls[name] = [];
             const repl = repls[name];
+            repl.buffer = '';
             repl.shell = spawn('firejail', [FIREJAIL_OPTIONS].concat(command));
             repl.shell.stdout.on('data', (data) => {
                 if(`${data}` === prompt)
                     return;
-                const output = '```' + data.toString().replace(RegExp('[\n]' + prompt, 'g'), '') + '```';
                 if('message' in repl)
-                    repl.message.channel.send(output);
+                {
+                    const dataStr = data.toString();
+                    repl.buffer += dataStr;
+                    if(dataStr.includes('\n'))
+                    {
+                        const output = '```' + repl.buffer.replace(RegExp('[\n]' + prompt, 'g'), '') + '```';
+                        repl.message.channel.send(output);
+                        repl.buffer = '';
+                    }
+                    else
+                        console.log(dataStr);
+                }
                 else
                     console.log(`${command[0]}: message is undefined`);
             });
@@ -55,11 +66,8 @@ function spawnREPL(name, command, prompt)
                     repl.message.channel.send(`*${command[0]} is restarting*`);
                 spawnREPL(name, command, prompt);
             });
-            /*repl.shell.on('error', (err) => {
+            repl.shell.on('error', (err) => {
                 console.log(`${command[0]}: ${err}`);
-            });*/
-            repl.shell.on('error', function (err) {
-                console.log('dir error', err);
             });
         }
         else
@@ -77,6 +85,13 @@ spawnREPL('py', ['python', '-i'], '');
 spawnREPL('sql', ['sqlite3', '-interactive'], 'sqlite> ');
 spawnREPL('hs', ['ghc', '--interactive'], 'Prelude> ');
 spawnREPL('go', ['gore'], 'gore> ');
+
+aliases['!sc'] = { repl: 'sc', macro: '' };
+aliases['!js'] = { repl: 'js', macro: '' };
+aliases['!py'] = { repl: 'py', macro: '' };
+aliases['!sql'] = { repl: 'sql', macro: '' };
+aliases['!hs'] = { repl: 'hs', macro: '' };
+aliases['!go'] = { repl: 'go', macro: '' };
 
 const client = new Discord.Client();
 client.on('ready', () => {
@@ -103,7 +118,7 @@ client.on('message', (message) => {
                     };
                 }
                 else
-                    message.reply(`invalid command '${params[3]}'`)
+                    message.reply(`invalid command '${params[3]}'`);
             }
             else
                 message.reply('invalid command');
@@ -128,6 +143,7 @@ client.on('message', (message) => {
     else if(params[0] in aliases)
     {
         const alias = aliases[params[0]];
+        //console.log(`${alias.macro} ${params.slice(1).join(' ')}`);
         inputCommand(repls[alias.repl], `${alias.macro} ${params.slice(1).join(' ')}`, message);
     }
 });
