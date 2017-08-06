@@ -32,122 +32,40 @@ function inputCommand(repl, command, message)
     repl.shell.stdin.write(command + '\n');
 }
 
-function spawnPython()
+function spawnREPL(name, command, prompt)
 {
-    repls.py = [];
-    repls.py.shell = spawn('firejail', [FIREJAIL_OPTIONS, 'python', '-i']);
-    repls.py.shell.stdout.on('data', (data) => {
-        if('message' in repls.py)
-            repls.py.message.channel.send(`\`\`\`${data}\`\`\``);
+    repls[name] = [];
+    const repl = repls[name];
+    repl.shell = spawn('firejail', [FIREJAIL_OPTIONS].concat(command));
+    repl.shell.stdout.on('data', (data) => {
+        if(`${data}` === prompt)
+            return;
+        if('message' in repl)
+            repl.message.channel.send(`\`\`\`${data}\`\`\``.replace(/[\n]${prompt}/, ''));
         else
-            console.log('python: message is undefined');
+            console.log(command[0] + ': message is undefined.');
     });
-    repls.py.shell.on('close', () => {
-        if('message' in repls.py)
-            repls.py.message.channel.send('restarting py...');
-        spawnPython();
+    repl.shell.on('close', () => {
+        if('message' in repl)
+            repl.message.channel.send(command[0] + ' is restarting.');
+        spawnREPL(name, command, prompt);
     });
 }
 
-function spawnNode()
-{
-    repls.js = [];
-    repls.js.shell = spawn('firejail', [FIREJAIL_OPTIONS, 'node', '-i']);
-    repls.js.shell.stdout.on('data', (data) => {
-        if('message' in repls.js && `${data}` !== '> ')
-            repls.js.message.channel.send(`\`\`\`${data}\`\`\``.replace(/\n> /, ''));
-        else
-            console.log('node: message is undefined');
-    });
-    repls.js.shell.on('close', () => {
-        if('message' in repls.js)
-            repls.js.message.channel.send('restarting js...');
-        spawnNode();
-    });
-}
+const repls = [];
+const aliases = [];
 
-function spawnScala()
-{
-    repls.sc = [];
-    repls.sc.shell = spawn('firejail', [FIREJAIL_OPTIONS, 'scala', '-i']);
-    repls.sc.shell.stdout.on('data', (data) => {
-        if('message' in repls.sc && `${data}` !== '\nscala> ')
-            repls.sc.message.channel.send(`\`\`\`${data}\`\`\``);
-        else
-            console.log('scala: message is undefined');
-    });
-    repls.sc.shell.on('close', () => {
-        if('message' in repls.sc)
-            repls.sc.message.channel.send('restarting sc...');
-        spawnScala();
-    });
-}
-
-function spawnSQLite()
-{
-    repls.sql = [];
-    repls.sql.shell = spawn('firejail', [FIREJAIL_OPTIONS, 'sqlite3', '-interactive']);
-    repls.sql.shell.stdout.on('data', (data) => {
-        if('message' in repls.sql)
-            repls.sql.message.channel.send(`\`\`\`${data}\`\`\``.replace(/[\n]sqlite> /, ''));
-        else
-            console.log('sqlite3: message is undefined');
-    });
-    repls.sql.shell.on('close', () => {
-        if('message' in repls.sql)
-            repls.sql.message.channel.send('restarting sql...');
-        spawnSQLite();
-    });
-}
-
-function spawnGHC()
-{
-    repls.hs = [];
-    repls.hs.shell = spawn('firejail', [FIREJAIL_OPTIONS, 'ghc', '--interactive']);
-    repls.hs.shell.stdout.on('data', (data) => {
-        if('message' in repls.hs && `${data}` !== 'Prelude> ')
-            repls.hs.message.channel.send(`\`\`\`${data}\`\`\``.replace(/\nPrelude> /, ''));
-        else
-            console.log('ghc: message is undefined');
-    });
-    repls.hs.shell.on('close', () => {
-        if('message' in repls.hs)
-            repls.hs.message.channel.send('restarting hs...');
-        spawnGHC();
-    });
-}
-
-function spawnGore()
-{
-    repls.go = [];
-    repls.go.shell = spawn('firejail', [FIREJAIL_OPTIONS, 'gore']);
-    repls.go.shell.stdout.on('data', (data) => {
-        if('message' in repls.go && `${data}` !== 'gore> ')
-            repls.go.message.channel.send(`\`\`\`${data}\`\`\``.replace(/\ngore> /, ''));
-        else
-            console.log('gore: message is undefined');
-    });
-    repls.go.shell.on('close', () => {
-        if('message' in repls.go)
-            repls.go.message.channel.send('restarting go...');
-        spawnGore();
-    });
-}
+spawnREPL('js', ['node', '-i'], '> ');
+spawnREPL('py', ['python', '-i'], '');
+spawnREPL('sc', ['scala', '-i'], '\nscala> ');
+spawnREPL('sql', ['sqlite3', '-interactive'], 'sqlite> ');
+spawnREPL('hs', ['ghc', '--interactive'], 'Prelude> ');
+spawnREPL('go', ['gore'], 'gore> ');
 
 const client = new Discord.Client();
 client.on('ready', () => {
     console.log('I am ready!');
 });
-
-const repls = [];
-const aliases = [];
-
-spawnPython();
-spawnNode();
-spawnScala();
-spawnSQLite();
-spawnGHC();
-spawnGore();
 
 client.on('message', (message) => {
     const params = message.content.split(' ');
@@ -178,8 +96,7 @@ client.on('message', (message) => {
         {
             if(params.length === 3 && params[2] in repls)
             {
-                message.channel.send(`restarting ${params[2]}...`);
-                delete repls[params[2]].message;
+                repls[params[2]].message = message;
                 repls[params[2]].shell.kill();
             }
             else
