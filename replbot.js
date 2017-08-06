@@ -27,7 +27,7 @@ const filesystem = require('fs');
 
 function inputCommand(repl, command, message)
 {
-    console.log(command);
+    //console.log(command);
     repl.message = message;
     repl.shell.stdin.write(command + '\n');
 }
@@ -55,9 +55,9 @@ function spawnREPL(name, command, prompt)
 const repls = [];
 const aliases = [];
 
+spawnREPL('sc', ['scala', '-i'], '\nscala> ');
 spawnREPL('js', ['node', '-i'], '> ');
 spawnREPL('py', ['python', '-i'], '');
-spawnREPL('sc', ['scala', '-i'], '\nscala> ');
 spawnREPL('sql', ['sqlite3', '-interactive'], 'sqlite> ');
 spawnREPL('hs', ['ghc', '--interactive'], 'Prelude> ');
 spawnREPL('go', ['gore'], 'gore> ');
@@ -82,7 +82,7 @@ client.on('message', (message) => {
                 if(params[3] in repls)
                 {
                     aliases['!' + params[2]] = {
-                        repl: repls[params[3]],
+                        repl: params[3],
                         macro: params.slice(4).join(' ')
                     };
                 }
@@ -112,7 +112,7 @@ client.on('message', (message) => {
     else if(params[0] in aliases)
     {
         const alias = aliases[params[0]];
-        inputCommand(alias.repl, alias.macro + ' ' + params.slice(1).join(' '), message);
+        inputCommand(repls[alias.repl], alias.macro + ' ' + params.slice(1).join(' '), message);
     }
 });
 
