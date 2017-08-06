@@ -19,10 +19,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const TOKEN = 'MzQzMzA2OTYyMjk5MjU2ODMz.DGcTVg.aCwgMyt1BvKgaViT-O_ZxeXoh2c';
+const FIREJAIL_OPTIONS = '--blacklist=/var --private';
 
 const Discord = require('discord.js');
 const { spawn } = require('child_process');
+const filesystem = require('fs');
 
 function inputCommand(repl, command, message)
 {
@@ -40,34 +41,48 @@ const repls = [];
 const aliases = [];
 
 repls.py = [];
-repls.py.shell = spawn('python', ['-i']);
+repls.py.shell = spawn('firejail', [FIREJAIL_OPTIONS, 'python', '-i']);
 repls.py.shell.stdout.on('data', (data) => {
     if('message' in repls.py)
-        repls.py.message.channel.send(`${data}`);
+        repls.py.message.channel.send(`\`\`\`${data}\`\`\``);
     else
-        console.log('message is undefined');
+        console.log('python: message is undefined');
 });
 
 repls.js = [];
-repls.js.shell = spawn('node', ['-i']);
+repls.js.shell = spawn('firejail', [FIREJAIL_OPTIONS, 'node', '-i']);
 repls.js.shell.stdout.on('data', (data) => {
-    if(`${data}` === '> ')
-        return;
-    if('message' in repls.js)
-        repls.js.message.channel.send(`${data}`);
+    if('message' in repls.js && `${data}` !== '> ')
+        repls.js.message.channel.send(`\`\`\`${data}\`\`\``.replace(/\n> /, ''));
     else
         console.log('node: message is undefined');
 });
 
 repls.sc = [];
-repls.sc.shell = spawn('scala', ['-i']);
+repls.sc.shell = spawn('firejail', [FIREJAIL_OPTIONS, 'scala', '-i']);
 repls.sc.shell.stdout.on('data', (data) => {
-    if(`${data}` === '\nscala> ')
-        return;
-    if('message' in repls.sc)
-        repls.sc.message.channel.send(`${data}`);
+    if('message' in repls.sc && `${data}` !== '\nscala> ')
+        repls.sc.message.channel.send(`\`\`\`${data}\`\`\``);
     else
         console.log('scala: message is undefined');
+});
+
+repls.sql = [];
+repls.sql.shell = spawn('firejail', [FIREJAIL_OPTIONS, 'sqlite3', '-interactive']);
+repls.sql.shell.stdout.on('data', (data) => {
+    if('message' in repls.sql)
+        repls.sql.message.channel.send(`\`\`\`${data}\`\`\``.replace(/[\n]sqlite> /, ''));
+    else
+        console.log('sqlite3: message is undefined');
+});
+
+repls.hs = [];
+repls.hs.shell = spawn('firejail', [FIREJAIL_OPTIONS, 'ghc', '--interactive']);
+repls.hs.shell.stdout.on('data', (data) => {
+    if('message' in repls.hs && `${data}` !== 'Prelude> ')
+        repls.hs.message.channel.send(`\`\`\`${data}\`\`\``.replace(/\nPrelude> /, ''));
+    else
+        console.log('ghc: message is undefined');
 });
 
 client.on('message', (message) => {
@@ -77,12 +92,8 @@ client.on('message', (message) => {
     if(params[0] === '!repl')
     {
         if(params.length === 1)
-        {
             message.reply('Hi! I\'m REPL Bot.');
-            return;
-        }
-        
-        if(params[1] === 'alias')
+        else if(params[1] === 'alias')
         {
             if(params.length > 3)
             {
@@ -98,23 +109,19 @@ client.on('message', (message) => {
             }
             else
                 message.reply('invalid command');
-            return;
         }
-        
-        const repl = repls[params[1]];
-        const command = params.slice(2).join(' ');
-        if(repl === null)
-            return;
-        inputCommand(repl, command, message);
-    }
-    else
-    {
-        if(params[0] in aliases)
+        else if(params[1] in repls)
         {
-            const alias = aliases[params[0]];
-            inputCommand(alias.repl, alias.macro + ' ' + params.slice(1).join(' '), message);
+            const repl = repls[params[1]];
+            const command = params.slice(2).join(' ');
+            inputCommand(repl, command, message);
         }
+    }
+    else if(params[0] in aliases)
+    {
+        const alias = aliases[params[0]];
+        inputCommand(alias.repl, alias.macro + ' ' + params.slice(1).join(' '), message);
     }
 });
 
-client.login(TOKEN);
+client.login(filesystem.readFileSync('token', 'utf8'));
