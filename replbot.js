@@ -19,36 +19,51 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const FIREJAIL_OPTIONS = '--blacklist=/var --private --quiet';
+const FIREJAIL_OPTIONS = '--blacklist=/var --private';
 
 const Discord = require('discord.js');
 const { spawn } = require('child_process');
 const filesystem = require('fs');
+const commandExists = require('command-exists');
 
-function inputCommand(repl, command, message)
+function inputCommand(repl, input, message)
 {
     //console.log(command);
     repl.message = message;
-    repl.shell.stdin.write(command + '\n');
+    repl.shell.stdin.write(`${input}\n`);
 }
 
 function spawnREPL(name, command, prompt)
 {
-    repls[name] = [];
-    const repl = repls[name];
-    repl.shell = spawn('firejail', [FIREJAIL_OPTIONS].concat(command));
-    repl.shell.stdout.on('data', (data) => {
-        if(`${data}` === prompt)
-            return;
-        if('message' in repl)
-            repl.message.channel.send(`\`\`\`${data}\`\`\``.replace(/[\n]${prompt}/, ''));
+    commandExists(command[0], (err, exists) => {
+        if(exists)
+        {
+            repls[name] = [];
+            const repl = repls[name];
+            repl.shell = spawn('firejail', [FIREJAIL_OPTIONS].concat(command));
+            repl.shell.stdout.on('data', (data) => {
+                if(`${data}` === prompt)
+                    return;
+                const output = '```' + data.toString().replace(RegExp('[\n]' + prompt, 'g'), '') + '```';
+                if('message' in repl)
+                    repl.message.channel.send(output);
+                else
+                    console.log(`${command[0]}: message is undefined`);
+            });
+            repl.shell.on('close', () => {
+                if('message' in repl)
+                    repl.message.channel.send(`*${command[0]} is restarting*`);
+                spawnREPL(name, command, prompt);
+            });
+            /*repl.shell.on('error', (err) => {
+                console.log(`${command[0]}: ${err}`);
+            });*/
+            repl.shell.on('error', function (err) {
+                console.log('dir error', err);
+            });
+        }
         else
-            console.log(command[0] + ': message is undefined.');
-    });
-    repl.shell.on('close', () => {
-        if('message' in repl)
-            repl.message.channel.send(command[0] + ' is restarting.');
-        spawnREPL(name, command, prompt);
+            console.log(`failed to start ${command}: ${err}`);
     });
 }
 
@@ -56,6 +71,7 @@ const repls = [];
 const aliases = [];
 
 spawnREPL('sc', ['scala', '-i'], '\nscala> ');
+//spawnREPL('sc', ['amm', '--color false'], '@ ');
 spawnREPL('js', ['node', '-i'], '> ');
 spawnREPL('py', ['python', '-i'], '');
 spawnREPL('sql', ['sqlite3', '-interactive'], 'sqlite> ');
@@ -81,13 +97,13 @@ client.on('message', (message) => {
             {
                 if(params[3] in repls)
                 {
-                    aliases['!' + params[2]] = {
+                    aliases[`!${params[2]}`] = {
                         repl: params[3],
                         macro: params.slice(4).join(' ')
                     };
                 }
                 else
-                    message.reply('invalid command \'' + params[3] + '\'');
+                    message.reply(`invalid command '${params[3]}'`)
             }
             else
                 message.reply('invalid command');
@@ -112,7 +128,7 @@ client.on('message', (message) => {
     else if(params[0] in aliases)
     {
         const alias = aliases[params[0]];
-        inputCommand(repls[alias.repl], alias.macro + ' ' + params.slice(1).join(' '), message);
+        inputCommand(repls[alias.repl], `${alias.macro} ${params.slice(1).join(' ')}`, message);
     }
 });
 
