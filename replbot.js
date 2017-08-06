@@ -19,6 +19,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+//so... i do something like check client.getMessage(channel.lastMessageID).author to see if my bot is the last one to speak. then call client.getMessage(channel.lastMessageID).update() if it is?
+
 const FIREJAIL_OPTIONS = '--blacklist=/var --private';
 
 const Discord = require('discord.js');
@@ -51,8 +53,13 @@ function spawnREPL(name, command, prompt)
                     repl.buffer += dataStr;
                     if(dataStr.includes('\n'))
                     {
-                        const output = '```' + repl.buffer.replace(RegExp('[\n]' + prompt, 'g'), '') + '```';
-                        repl.message.channel.send(output);
+                        const parsedBuffer = repl.buffer.replace(RegExp('[\n]' + prompt, 'g'), '');
+                        repl.message.channel.fetchMessage(repl.message.channel.lastMessageID).then((lastMessage) => {
+                            if(lastMessage.author.id === client.user.id)
+                                lastMessage.edit('```\n' + (lastMessage.content.replace(RegExp('```', 'g'), '') + '\n' + parsedBuffer) + '```');
+                            else
+                                repl.message.channel.send('```' + parsedBuffer + '```');
+                        })
                         repl.buffer = '';
                     }
                     else
