@@ -19,8 +19,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-//so... i do something like check client.getMessage(channel.lastMessageID).author to see if my bot is the last one to speak. then call client.getMessage(channel.lastMessageID).update() if it is?
-
 const FIREJAIL_OPTIONS = '--blacklist=/var --private';
 
 const Discord = require('discord.js');
@@ -33,6 +31,7 @@ function inputCommand(repl, input, message)
     //console.log(command);
     repl.message = message;
     repl.shell.stdin.write(`${input}\n`);
+    console.log(`${message.author.username}: <${input}>`);
 }
 
 function spawnREPL(name, command, prompt)
@@ -44,30 +43,36 @@ function spawnREPL(name, command, prompt)
             const repl = repls[name];
             repl.buffer = '';
             repl.shell = spawn('firejail', [FIREJAIL_OPTIONS].concat(command));
-            repl.shell.stdout.on('data', (data) => {
-                if(`${data}` === prompt)
+            repl.name = command[0];
+            
+            const say = (data) => {
+                const dataStr = data.toString();
+                if(dataStr === prompt)
                     return;
                 if('message' in repl)
                 {
-                    const dataStr = data.toString();
                     repl.buffer += dataStr;
                     if(dataStr.includes('\n'))
                     {
                         const parsedBuffer = repl.buffer.replace(RegExp('[\n]' + prompt, 'g'), '');
+                        repl.buffer = '';
                         repl.message.channel.fetchMessage(repl.message.channel.lastMessageID).then((lastMessage) => {
                             if(lastMessage.author.id === client.user.id)
                                 lastMessage.edit('```\n' + (lastMessage.content.replace(RegExp('```', 'g'), '') + '\n' + parsedBuffer) + '```');
                             else
                                 repl.message.channel.send('```' + parsedBuffer + '```');
-                        })
-                        repl.buffer = '';
+                        });
+                        console.log(`${repl.name}: <${parsedBuffer}`.replace(/\n$/, '') + '>');
                     }
-                    else
-                        console.log(dataStr);
+                    //else
+                    //    console.log(dataStr);
                 }
                 else
                     console.log(`${command[0]}: message is undefined`);
-            });
+            };
+            
+            repl.shell.stdout.on('data', say);
+            repl.shell.stderr.on('data', say);
             repl.shell.on('close', () => {
                 if('message' in repl)
                     repl.message.channel.send(`*${command[0]} is restarting*`);
@@ -85,10 +90,10 @@ function spawnREPL(name, command, prompt)
 const repls = [];
 const aliases = [];
 
-spawnREPL('sc', ['scala', '-i'], '\nscala> ');
+//spawnREPL('sc', ['scala', '-i'], '\nscala> ');
 //spawnREPL('sc', ['amm', '--color false'], '@ ');
 spawnREPL('js', ['node', '-i'], '> ');
-spawnREPL('py', ['python', '-i'], '');
+spawnREPL('py', ['python', '-i'], '>>> ');
 spawnREPL('sql', ['sqlite3', '-interactive'], 'sqlite> ');
 spawnREPL('hs', ['ghc', '--interactive'], 'Prelude> ');
 spawnREPL('go', ['gore'], 'gore> ');
@@ -121,7 +126,7 @@ client.on('message', (message) => {
                 {
                     aliases[`!${params[2]}`] = {
                         repl: params[3],
-                        macro: params.slice(4).join(' ')
+                        macro: params.slice(4).join(' ') + ' '
                     };
                 }
                 else
@@ -150,8 +155,7 @@ client.on('message', (message) => {
     else if(params[0] in aliases)
     {
         const alias = aliases[params[0]];
-        //console.log(`${alias.macro} ${params.slice(1).join(' ')}`);
-        inputCommand(repls[alias.repl], `${alias.macro} ${params.slice(1).join(' ')}`, message);
+        inputCommand(repls[alias.repl], `${alias.macro}${params.slice(1).join(' ')}`, message);
     }
 });
 
