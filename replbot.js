@@ -3,7 +3,7 @@
 
 /*
  * REPL Bot is a Discord bot that acts as a frontend to read-eval-print loop shells.
- * Copyright (C) 2017  Jeffrey Thomas Piercy
+ * Copyright (C) 2017-2018  Jeffrey Thomas Piercy
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -19,7 +19,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const FIREJAIL_OPTIONS = '--blacklist=/var --private';
+const FIREJAIL_OPTIONS = '--profile=firejail.profile';
 
 const Discord = require('discord.js');
 const { spawn } = require('child_process');
@@ -31,7 +31,7 @@ function inputCommand(repl, input, message)
     //console.log(command);
     repl.message = message;
     repl.shell.stdin.write(`${input}\n`);
-    console.log(`${message.author.username}: <${input}>`);
+    console.log(`${message.author.username} ${repl.name}: <${input}>`);
 }
 
 function spawnREPL(name, command, prompt)
@@ -93,9 +93,9 @@ const aliases = [];
 //spawnREPL('sc', ['scala', '-i'], '\nscala> ');
 //spawnREPL('sc', ['amm', '--color false'], '@ ');
 spawnREPL('js', ['node', '-i'], '> ');
-spawnREPL('py', ['python', '-i'], '>>> ');
+spawnREPL('py', ['pypy3', '-i'], '>>>> ');
 spawnREPL('sql', ['sqlite3', '-interactive'], 'sqlite> ');
-spawnREPL('hs', ['ghc', '--interactive'], 'Prelude> ');
+//spawnREPL('hs', ['ghc', '--interactive'], 'Prelude> ');
 spawnREPL('go', ['gore'], 'gore> ');
 
 aliases['!sc'] = { repl: 'sc', macro: '' };
@@ -106,9 +106,7 @@ aliases['!hs'] = { repl: 'hs', macro: '' };
 aliases['!go'] = { repl: 'go', macro: '' };
 
 const client = new Discord.Client();
-client.on('ready', () => {
-    console.log('I am ready!');
-});
+client.on('ready', () => console.log('I am ready!'));
 
 client.on('message', (message) => {
     const params = message.content.split(' ');
@@ -156,6 +154,7 @@ client.on('message', (message) => {
     {
         const alias = aliases[params[0]];
         inputCommand(repls[alias.repl], `${alias.macro}${params.slice(1).join(' ')}`, message);
+        console.log(`[${alias.macro}${params.slice(1).join(' ')}]`);
     }
 });
 
